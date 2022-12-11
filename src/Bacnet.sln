@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 25.0.1704.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bacnet.Models", "Bacnet.Models\Bacnet.Models.csproj", "{124BA9BC-ED6A-4630-86B5-33AF23F679DD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bacnet.Slave", "Bacnet.Slave\Bacnet.Slave.csproj", "{E4873FC2-13D3-4A03-A2F7-77E6B4826F18}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{124BA9BC-ED6A-4630-86B5-33AF23F679DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{124BA9BC-ED6A-4630-86B5-33AF23F679DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{124BA9BC-ED6A-4630-86B5-33AF23F679DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{124BA9BC-ED6A-4630-86B5-33AF23F679DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E4873FC2-13D3-4A03-A2F7-77E6B4826F18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E4873FC2-13D3-4A03-A2F7-77E6B4826F18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E4873FC2-13D3-4A03-A2F7-77E6B4826F18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E4873FC2-13D3-4A03-A2F7-77E6B4826F18}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {651AD13A-CE66-4954-8E82-EE94BFE9D796}
+	EndGlobalSection
+EndGlobal

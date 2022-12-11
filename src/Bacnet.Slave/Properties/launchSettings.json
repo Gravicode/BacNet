@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Bacnet.Slave": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
