@@ -3,16 +3,15 @@ using Bacnet.Slave;
 using Bacnet.Models;
 using System.Net;
 using System.IO.BACnet;
+using System.IO.BACnet.Storage;
 
 namespace Bacnet.Slave;
 
 public class Worker : BackgroundService
 {
-    
-    BacnetClient bacnet_client;
 
-    // All the present Bacnet Device List
-    List<BacNode> DevicesList = new List<BacNode>();
+    BacnetClient bacnet_client;
+    DeviceStorage m_storage;
     private readonly ILogger<Worker> _logger;
    
     private readonly IPiDevicePerformanceInfo _devicePerformance;
@@ -32,7 +31,6 @@ public class Worker : BackgroundService
         try
         {
             StartActivity();
-
             Thread.Sleep(1000); // Wait a fiew time for WhoIs responses (managed in handler_OnIam)
         }
         catch(Exception ex) {
@@ -44,7 +42,6 @@ public class Worker : BackgroundService
     }
     public override Task StopAsync(CancellationToken cancellationToken)
     {
-        
         bacnet_client.Dispose();
         return base.StopAsync(cancellationToken);
     }
@@ -59,135 +56,155 @@ public class Worker : BackgroundService
         }
     }
 
-    void WriteBacnet(int DeviceId, float NewVal)
-    {
-        BacnetValue newValue = new BacnetValue(Convert.ToSingle(NewVal));   // expect it's a float
-        var ret = WriteScalarValue(DeviceId, new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_OUTPUT, 0), BacnetPropertyIds.PROP_PRESENT_VALUE, newValue);
-        Console.WriteLine("Write feedback : " + ret.ToString());
-    }
-
-    float ReadBacnet(int DeviceId)
-    {
-        BacnetValue Value;
-        bool ret;
-        // Read Present_Value property on the object ANALOG_INPUT:0 provided by the device 12345
-        // Scalar value only
-        ret = ReadScalarValue(DeviceId, new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, 0), BacnetPropertyIds.PROP_PRESENT_VALUE, out Value);
-
-        if (ret == true)
-        {
-            return Convert.ToSingle(Value.Value);
-        }
-        return 0f;
-    }
+  
 
     private void WriteData(DevicePerformance performance)
     {
         var props = typeof(DevicePerformance).GetProperties();
         ushort address = 12345;
+        uint instance = 0;
         foreach (var prop in props)
         {
             Console.WriteLine(prop.PropertyType.ToString());
             if (!prop.PropertyType.ToString().Contains("DateTime"))
             {
                 var value = Convert.ToSingle(prop.GetValue(performance));
-                //var convertedValue = value.ToUnsignedShortArray();
-                WriteBacnet(address, value);
-                address += 1;
+                BacnetObjectId OBJECT_ANALOG_INPUT = new BacnetObjectId(BacnetObjectTypes.OBJECT_ANALOG_INPUT, instance);
+                lock (m_storage)         // read and write callback are fired in a separated thread, so multiple access needs protection
+                {
+                    // Write the Present Value
+                    IList<BacnetValue> valtowrite = new BacnetValue[1] { new BacnetValue(value) };
+                    var write = m_storage.WriteProperty(OBJECT_ANALOG_INPUT, BacnetPropertyIds.PROP_PRESENT_VALUE, 1, valtowrite, true);
+                    Console.WriteLine($"write {prop.Name}, result:{write}");
+                }
+                instance += 1;
             }
         }
     }
+
     void StartActivity()
     {
+        // Load the device descriptor from the embedded resource file
+        // Get myId as own device id
+        m_storage = DeviceStorage.Load("DeviceDescriptor.xml");
+
         // Bacnet on UDP/IP/Ethernet
         bacnet_client = new BacnetClient(new BacnetIpUdpProtocolTransport(0xBAC0, false));
         // or Bacnet Mstp on COM4 à 38400 bps, own master id 8
         // m_bacnet_client = new BacnetClient(new BacnetMstpProtocolTransport("COM4", 38400, 8);
         // Or Bacnet Ethernet
-        // bacnet_client = new BacnetClient(new BacnetEthernetProtocolTransport("Connexion au réseau local"));          
+        // bacnet_client = new BacnetClient(new BacnetEthernetProtocolTransport("Connexion au réseau local"));    
         // Or Bacnet on IPV6
         // bacnet_client = new BacnetClient(new BacnetIpV6UdpProtocolTransport(0xBAC0));
 
+        bacnet_client.OnWhoIs += new BacnetClient.WhoIsHandler(handler_OnWhoIs);
+        bacnet_client.OnIam += new BacnetClient.IamHandler(bacnet_client_OnIam);
+        bacnet_client.OnReadPropertyRequest += new BacnetClient.ReadPropertyRequestHandler(handler_OnReadPropertyRequest);
+        bacnet_client.OnReadPropertyMultipleRequest += new BacnetClient.ReadPropertyMultipleRequestHandler(handler_OnReadPropertyMultipleRequest);
+        bacnet_client.OnWritePropertyRequest += new BacnetClient.WritePropertyRequestHandler(handler_OnWritePropertyRequest);
+
         bacnet_client.Start();    // go
+                                  // Send Iam
+        bacnet_client.Iam(m_storage.DeviceId, new BacnetSegmentations());
 
-        // Send WhoIs in order to get back all the Iam responses :  
-        bacnet_client.OnIam += new BacnetClient.IamHandler(handler_OnIam);
-
-        bacnet_client.WhoIs();
-
-        /* Optional Remote Registration as A Foreign Device on a BBMD at @192.168.1.1 on the default 0xBAC0 port
-
-        bacnet_client.RegisterAsForeignDevice("192.168.1.1", 60);
-        Thread.Sleep(20);
-        bacnet_client.RemoteWhoIs("192.168.1.1");
-        */
     }
 
-    void handler_OnIam(BacnetClient sender, BacnetAddress adr, uint device_id, uint max_apdu, BacnetSegmentations segmentation, ushort vendor_id)
+    void bacnet_client_OnIam(BacnetClient sender, BacnetAddress adr, uint device_id, uint max_apdu, BacnetSegmentations segmentation, ushort vendor_id)
     {
-        lock (DevicesList)
+        //ignore Iams from other devices. (Also loopbacks)
+    }
+
+    /*****************************************************************************************************/
+    void handler_OnWritePropertyRequest(BacnetClient sender, BacnetAddress adr, byte invoke_id, BacnetObjectId object_id, BacnetPropertyValue value, BacnetMaxSegments max_segments)
+    {
+        // only OBJECT_ANALOG_VALUE:0.PROP_PRESENT_VALUE could be write in this sample code
+        if ((object_id.type != BacnetObjectTypes.OBJECT_ANALOG_VALUE) || (object_id.instance != 0) || ((BacnetPropertyIds)value.property.propertyIdentifier != BacnetPropertyIds.PROP_PRESENT_VALUE))
         {
-            // Device already registred ?
-            foreach (BacNode bn in DevicesList)
-                if (bn.getAdd(device_id) != null) return;   // Yes
-            Console.WriteLine($"add dev address:{adr} / device_id:{device_id}");
-            // Not already in the list
-            DevicesList.Add(new BacNode(adr, device_id));   // add it
+            sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invoke_id, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_WRITE_ACCESS_DENIED);
+            return;
         }
-    }
 
-    /*****************************************************************************************************/
-    bool ReadScalarValue(int device_id, BacnetObjectId BacnetObjet, BacnetPropertyIds Propriete, out BacnetValue Value)
-    {
-        BacnetAddress adr;
-        IList<BacnetValue> NoScalarValue;
-
-        Value = new BacnetValue(null);
-
-        // Looking for the device
-        adr = DeviceAddr((uint)device_id);
-        if (adr == null) return false;  // not found
-
-        // Property Read
-        if (bacnet_client.ReadPropertyRequest(adr, BacnetObjet, Propriete, out NoScalarValue) == false)
-            return false;
-
-        Value = NoScalarValue[0];
-        return true;
-    }
-
-    /*****************************************************************************************************/
-    bool WriteScalarValue(int device_id, BacnetObjectId BacnetObjet, BacnetPropertyIds Propriete, BacnetValue Value)
-    {
-        BacnetAddress adr;
-
-        // Looking for the device
-        adr = DeviceAddr((uint)device_id);
-        if (adr == null) return false;  // not found
-
-        // Property Write
-        BacnetValue[] NoScalarValue = { Value };
-        if (bacnet_client.WritePropertyRequest(adr, BacnetObjet, Propriete, NoScalarValue) == false)
-            return false;
-
-        return true;
-    }
-
-    /*****************************************************************************************************/
-    BacnetAddress DeviceAddr(uint device_id)
-    {
-        BacnetAddress ret;
-
-        lock (DevicesList)
+        lock (m_storage)
         {
-            foreach (BacNode bn in DevicesList)
+            try
             {
-                ret = bn.getAdd(device_id);
-                if (ret != null) return ret;
+                DeviceStorage.ErrorCodes code = m_storage.WriteCommandableProperty(object_id, (BacnetPropertyIds)value.property.propertyIdentifier, value.value[0], value.priority);
+                if (code == DeviceStorage.ErrorCodes.NotForMe)
+                    code = m_storage.WriteProperty(object_id, (BacnetPropertyIds)value.property.propertyIdentifier, value.property.propertyArrayIndex, value.value);
+
+                if (code == DeviceStorage.ErrorCodes.Good)
+                    sender.SimpleAckResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invoke_id);
+                else
+                    sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invoke_id, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
             }
-            // not in the list
-            return null;
+            catch (Exception)
+            {
+                sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_WRITE_PROPERTY, invoke_id, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+            }
         }
     }
+    /*****************************************************************************************************/
+    void handler_OnWhoIs(BacnetClient sender, BacnetAddress adr, int low_limit, int high_limit)
+    {
+        if (low_limit != -1 && m_storage.DeviceId < low_limit) return;
+        else if (high_limit != -1 && m_storage.DeviceId > high_limit) return;
+        sender.Iam(m_storage.DeviceId, new BacnetSegmentations());
+    }
+
+    /*****************************************************************************************************/
+    void handler_OnReadPropertyRequest(BacnetClient sender, BacnetAddress adr, byte invoke_id, BacnetObjectId object_id, BacnetPropertyReference property, BacnetMaxSegments max_segments)
+    {
+        lock (m_storage)
+        {
+            try
+            {
+                IList<BacnetValue> value;
+                DeviceStorage.ErrorCodes code = m_storage.ReadProperty(object_id, (BacnetPropertyIds)property.propertyIdentifier, property.propertyArrayIndex, out value);
+                if (code == DeviceStorage.ErrorCodes.Good)
+                    sender.ReadPropertyResponse(adr, invoke_id, sender.GetSegmentBuffer(max_segments), object_id, property, value);
+                else
+                    sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, invoke_id, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+            }
+            catch (Exception)
+            {
+                sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROPERTY, invoke_id, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+            }
+        }
+    }
+
+    /*****************************************************************************************************/
+    void handler_OnReadPropertyMultipleRequest(BacnetClient sender, BacnetAddress adr, byte invoke_id, IList<BacnetReadAccessSpecification> properties, BacnetMaxSegments max_segments)
+    {
+        lock (m_storage)
+        {
+            try
+            {
+                IList<BacnetPropertyValue> value;
+                List<BacnetReadAccessResult> values = new List<BacnetReadAccessResult>();
+                foreach (BacnetReadAccessSpecification p in properties)
+                {
+                    if (p.propertyReferences.Count == 1 && p.propertyReferences[0].propertyIdentifier == (uint)BacnetPropertyIds.PROP_ALL)
+                    {
+                        if (!m_storage.ReadPropertyAll(p.objectIdentifier, out value))
+                        {
+                            sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, invoke_id, BacnetErrorClasses.ERROR_CLASS_OBJECT, BacnetErrorCodes.ERROR_CODE_UNKNOWN_OBJECT);
+                            return;
+                        }
+                    }
+                    else
+                        m_storage.ReadPropertyMultiple(p.objectIdentifier, p.propertyReferences, out value);
+                    values.Add(new BacnetReadAccessResult(p.objectIdentifier, value));
+                }
+
+                sender.ReadPropertyMultipleResponse(adr, invoke_id, sender.GetSegmentBuffer(max_segments), values);
+
+            }
+            catch (Exception)
+            {
+                sender.ErrorResponse(adr, BacnetConfirmedServices.SERVICE_CONFIRMED_READ_PROP_MULTIPLE, invoke_id, BacnetErrorClasses.ERROR_CLASS_DEVICE, BacnetErrorCodes.ERROR_CODE_OTHER);
+            }
+        }
+    }
+
 }
 

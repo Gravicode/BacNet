@@ -20,4 +20,9 @@
     <None Remove="BACnet" />
     <None Remove="SharpPcap" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="DeviceDescriptor.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>
