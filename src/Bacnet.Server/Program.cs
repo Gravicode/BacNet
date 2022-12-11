@@ -62,7 +62,7 @@ if (Success)
                 TimeStamp = DateTime.Now
             };
 
-            //_client.PostAsJsonAsync(dataStoreServiceUrl + "/deviceperformance", sysPerformData);
+            _client.PostAsJsonAsync(dataStoreServiceUrl + "/deviceperformance", sysPerformData);
             Console.WriteLine($"Cpu Usage:{sysPerformData.CpuUsage} -- Cpu Temperature:{sysPerformData.CpuTemperature} -- Ram Usage:{sysPerformData.MemoryUsage} -- TimeStamp:{sysPerformData.TimeStamp}");
         }
         Thread.Sleep(4000);
