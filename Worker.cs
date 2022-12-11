@@ -130,7 +130,7 @@ public class Worker : BackgroundService
             // Device already registred ?
             foreach (BacNode bn in DevicesList)
                 if (bn.getAdd(device_id) != null) return;   // Yes
-            Console.WriteLine($"add dev address:{adr} / device_id:{device_id}");
+            Console.WriteLine($"add device, address:{adr} | device id:{device_id}");
             // Not already in the list
             DevicesList.Add(new BacNode(adr, device_id));   // add it
         }
