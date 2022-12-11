@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bacnet.Models", "Bacnet.Mod
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bacnet.Slave", "Bacnet.Slave\Bacnet.Slave.csproj", "{E4873FC2-13D3-4A03-A2F7-77E6B4826F18}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bacnet.Server", "Bacnet.Server\Bacnet.Server.csproj", "{744F6AC0-8885-4143-A019-A1EF33FA0AE0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bacnet.Web", "Bacnet.Web\Bacnet.Web.csproj", "{7CF3BBA4-674E-4737-9B4E-7781B2F9F1C1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{E4873FC2-13D3-4A03-A2F7-77E6B4826F18}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E4873FC2-13D3-4A03-A2F7-77E6B4826F18}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E4873FC2-13D3-4A03-A2F7-77E6B4826F18}.Release|Any CPU.Build.0 = Release|Any CPU
+		{744F6AC0-8885-4143-A019-A1EF33FA0AE0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{744F6AC0-8885-4143-A019-A1EF33FA0AE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{744F6AC0-8885-4143-A019-A1EF33FA0AE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{744F6AC0-8885-4143-A019-A1EF33FA0AE0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7CF3BBA4-674E-4737-9B4E-7781B2F9F1C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7CF3BBA4-674E-4737-9B4E-7781B2F9F1C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7CF3BBA4-674E-4737-9B4E-7781B2F9F1C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7CF3BBA4-674E-4737-9B4E-7781B2F9F1C1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

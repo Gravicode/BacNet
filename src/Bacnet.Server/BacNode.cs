@@ -1,5 +1,5 @@
 ﻿using System.IO.BACnet;
-namespace Bacnet.Slave;
+namespace Bacnet.Server;
 
 public class BacNode
 {
